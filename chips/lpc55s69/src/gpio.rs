@@ -4,22 +4,22 @@
 
 //! General Purpose Input/Output driver.
 
-#![no_main]
-#![no_std]
 #![allow(unused_imports)]
 #![allow(dead_code)]
 
+use core::cell::Cell;
+use kernel::hil;
+use kernel::utilities::cells::OptionalCell;
 use kernel::utilities::registers::{
-    register_bitfields, register_structs, ReadOnly, ReadWrite, WriteOnly,
+    self, register_bitfields, register_structs, ReadOnly, ReadWrite, WriteOnly
 };
 use kernel::utilities::StaticRef;
-use kernel::hil::gpio;
-use kernel::utilities::cells::OptionalCell;
-use core::cell::Cell;
-use panic_halt as _;
+use enum_primitive::enum_from_primitive;
 
 const GPIO_BASE: StaticRef<GpioRegisters> =
     unsafe { StaticRef::new(0x4008C000 as *const GpioRegisters) };
+
+const GPIO_PER_PORT: usize = 32;
 
 register_structs! {
     /// General Purpose I/O (GPIO)
@@ -42,9 +42,9 @@ register_structs! {
         (0x2004 => dir_1: ReadWrite<u32, Direction::Register>),
         (0x2008 => _reserved4),
         /// Mask register for all port GPIO pins
-        (0x2080 => mask_0: ReadWrite<u32, Mask::Register>),
+        (0x2080 => mask_0: ReadWrite<u32, Control::Register>),
         /// Mask register for all port GPIO pins
-        (0x2084 => mask_1: ReadWrite<u32, Mask::Register>),
+        (0x2084 => mask_1: ReadWrite<u32, Control::Register>),
         (0x2088 => _reserved5),
         /// Port pin register for all port GPIO pins
         (0x2100 => pin_0: ReadWrite<u32, Read::Register>),
@@ -92,80 +92,70 @@ register_structs! {
 register_bitfields![u32,
     Direction [
         /// Pin direction control
-        DIR OFFSET(0) NUMBITS(1) [
-            Input = 0,
-            Output = 1
-        ]
+        DIR OFFSET(0) NUMBITS(32)
     ],
     Control [
         /// Mask control for active bits
-        MASK OFFSET(0) NUMBITS(1) [
-            Inactive = 0,
-            Active = 1
-        ]
+        MASK OFFSET(0) NUMBITS(32)
     ],
     Read [
         /// Read pin states
-        PORT OFFSET(0) NUMBITS(1) [
-            Clear = 0,
-            Set = 1
-        ]
+        PORT OFFSET(0) NUMBITS(32)
     ],
     Mask [
         /// Masked port control
-        MPORT OFFSET(0) NUMBITS(1) [
-            Low = 0,
-            High = 1
-        ]
+        MPORT OFFSET(0) NUMBITS(32)
     ],
     Set [
         /// Set output bits
-        SET OFFSET(0) NUMBITS(1) [
-            Nop = 0,
-            Set = 1
-        ]
+        SET OFFSET(0) NUMBITS(32)
     ],
     Clear [
         /// Clear output bits
-        CLR OFFSET(0) NUMBITS(1) [
-            Nop = 0,
-            Clear = 1
-        ]
+        CLR OFFSET(0) NUMBITS(32)
     ],
     Toggle [
         /// Toggle output bits
-        NOT OFFSET(0) NUMBITS(1) [
-            Nop = 0,
-            Toggle = 1
-        ]
+        NOT OFFSET(0) NUMBITS(32)
     ],
     Dirset [
         /// Set direction bits
-        DIRSET OFFSET(0) NUMBITS(1) [
-            Nop = 0,
-            Set = 1
-        ]
+        DIRSET OFFSET(0) NUMBITS(32)
     ],
     Dirclr [
         /// Clear direction bits
-        DIRCLR OFFSET(0) NUMBITS(1) [
-            Nop = 0,
-            Clear = 1
-        ]
+        DIRCLR OFFSET(0) NUMBITS(32)
     ],
     Dirnot [
         /// Toggle direction bits
-        DIRNOT OFFSET(0) NUMBITS(1) [
-            Nop = 0,
-            Toggle = 1
-        ]
+        DIRNOT OFFSET(0) NUMBITS(32)
     ]
 ];
 
-pub struct IntPin<'a> {
+enum_from_primitive! {
+    #[derive(Copy, Clone, Debug, PartialEq)]
+    #[rustfmt::skip]
+    pub enum Pin {
+        P0_00, P0_01, P0_02, P0_03, P0_04, P0_05, P0_06, P0_07, P0_08, P0_09, P0_10, P0_11, P0_12, P0_13, P0_14, P0_15,
+        
+
+    }
+}
+
+pub struct GPIOPin<'a> {
     pin: u8,
-    registers: StaticRef<GpioRegisters>,
-    reg_idx: usize,
-    detect_both_edges: Cell<bool>,
-    client: OptionalCell<&'a dyn gpio::Client>,
+    port: u8,
+    gpio_registers: StaticRef<GpioRegisters>,
+    client: OptionalCell<&'a dyn hil::gpio::Client>,
+}
+
+impl<'a> GPIOPin<'a> {
+    pub fn new(pin: Pin) -> GPIOPin<'a> {
+        GPIOPin {
+        pin : ((pin as usize) % GPIO_PER_PORT) as u8,
+        port : ((pin as usize) / GPIO_PER_PORT) as u8,
+        gpio_registers : GPIO_BASE,
+        client : OptionalCell::empty(),
+        }
+    }
 }

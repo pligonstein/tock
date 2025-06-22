@@ -3,15 +3,15 @@
 # Copyright Tock Contributors 2022.
 
 [package]
-name = "lpc55s69"
+name = "cortexm33"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
 
 [dependencies]
-cortexm33 = { path = "../../arch/cortex-m33" }
-enum_primitive = { path = "../../libraries/enum_primitive" }
 kernel = { path = "../../kernel" }
+cortexm = { path = "../cortex-m" }
+cortexv7m = { path = "../cortex-v7m" }
 
 [lints]
 workspace = true
