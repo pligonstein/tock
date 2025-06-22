@@ -129,7 +129,7 @@ register_structs! {{
     @staticmethod
     def fields(name, peripheral, dev):
         def get_register_size(reg):
-            size = reg._size
+            size = reg.size
             if size is None and reg.parent:
                 size = reg.parent.size
             if size is None and dev.size:
@@ -188,7 +188,7 @@ class PeripheralStructField(CodeBlock):
             return identifier
 
         def definition(reg):
-            if len(reg._fields) == 1:
+            if len(reg.fields) == 1:
                 return ""
             return ", {}::Register".format(reg.name)
 
@@ -203,7 +203,7 @@ class PeripheralStructField(CodeBlock):
             "offset": int(register.address_offset),
             "name": identifier(register.name),
             "size": size,
-            "mode": mode_map.get(register._access, "ReadWrite"),
+            "mode": mode_map.get(register.access, "ReadWrite"),
             "definition": definition(register),
         }
 
@@ -240,8 +240,8 @@ class Bitfield(CodeBlock):
 
     @staticmethod
     def fields(register):
-        if len (register._fields) > 0:
-            fields = ",\n".join(BitfieldField(field) for field in register._fields)
+        if len (register.fields) > 0:
+            fields = ",\n".join(BitfieldField(field) for field in register.fields)
         else:
             fields = "    VALUE OFFSET (0) NUMBITS (32) []"
         return {

@@ -4,6 +4,11 @@
 
 //! General Purpose Input/Output driver.
 
+<<<<<<< HEAD
+=======
+#![no_main]
+#![no_std]
+>>>>>>> 53694e6ec (Updated arch Cortex-M33 and added lpc55s69)
 #![allow(unused_imports)]
 #![allow(dead_code)]
 
@@ -11,16 +16,26 @@ use core::cell::Cell;
 use kernel::hil;
 use kernel::utilities::cells::OptionalCell;
 use kernel::utilities::registers::{
+<<<<<<< HEAD
     self, register_bitfields, register_structs, ReadOnly, ReadWrite, WriteOnly
 };
 use kernel::utilities::StaticRef;
 use enum_primitive::enum_from_primitive;
+=======
+    register_bitfields, register_structs, ReadOnly, ReadWrite, WriteOnly,
+};
+use kernel::utilities::StaticRef;
+use panic_halt as _;
+>>>>>>> 53694e6ec (Updated arch Cortex-M33 and added lpc55s69)
 
 const GPIO_BASE: StaticRef<GpioRegisters> =
     unsafe { StaticRef::new(0x4008C000 as *const GpioRegisters) };
 
+<<<<<<< HEAD
 const GPIO_PER_PORT: usize = 32;
 
+=======
+>>>>>>> 53694e6ec (Updated arch Cortex-M33 and added lpc55s69)
 register_structs! {
     /// General Purpose I/O (GPIO)
     GpioRegisters {
@@ -132,6 +147,7 @@ register_bitfields![u32,
     ]
 ];
 
+<<<<<<< HEAD
 enum_from_primitive! {
     #[derive(Copy, Clone, Debug, PartialEq)]
     #[rustfmt::skip]
@@ -159,3 +175,11 @@ impl<'a> GPIOPin<'a> {
         }
     }
 }
+=======
+pub struct IntPin<'a> {
+    pin: u8,
+    port: u8,
+    registers: StaticRef<GpioRegisters>,
+    client: OptionalCell<&'a dyn hil::gpio::Client>,
+}
+>>>>>>> 53694e6ec (Updated arch Cortex-M33 and added lpc55s69)

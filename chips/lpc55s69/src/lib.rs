@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // Licensed under the Apache License, Version 2.0 or the MIT License.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 // Copyright Tock Contributors 2022.
@@ -120,3 +121,6 @@ pub unsafe fn init() {
     cortexm33::nvic::clear_all_pending();
     cortexm33::nvic::enable_all();
 }
+=======
+
+>>>>>>> 53694e6ec (Updated arch Cortex-M33 and added lpc55s69)

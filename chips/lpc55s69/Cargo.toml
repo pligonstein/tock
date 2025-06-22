@@ -10,8 +10,20 @@ edition.workspace = true
 
 [dependencies]
 cortexm33 = { path = "../../arch/cortex-m33" }
+<<<<<<< HEAD
 enum_primitive = { path = "../../libraries/enum_primitive" }
 kernel = { path = "../../kernel" }
 
 [lints]
 workspace = true
+=======
+kernel = { path = "../../kernel" }
+panic-halt = "0.2.0"
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "gpio"
+path = "src/gpio.rs"
+>>>>>>> 53694e6ec (Updated arch Cortex-M33 and added lpc55s69)
