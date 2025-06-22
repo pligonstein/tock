@@ -7,9 +7,7 @@
 //! It is based on RP2040SoC SoC (Cortex M0+).
 
 #![no_std]
-// Disable this attribute when documenting, as a workaround for
-// https://github.com/rust-lang/rust/issues/62184.
-#![cfg_attr(not(doc), no_main)]
+#![no_main]
 #![deny(missing_docs)]
 
 use core::ptr::{addr_of, addr_of_mut};
@@ -45,7 +43,7 @@ mod flash_bootloader;
 /// Allocate memory for the stack
 #[no_mangle]
 #[link_section = ".stack_buffer"]
-pub static mut STACK_MEMORY: [u8; 0x1500] = [0; 0x1500];
+static mut STACK_MEMORY: [u8; 0x1500] = [0; 0x1500];
 
 // Manually setting the boot header section that contains the FCB header
 #[used]
@@ -293,7 +291,7 @@ pub unsafe fn start() -> (
     peripherals.resets.unreset_all_except(&[], true);
 
     // Set the UART used for panic
-    io::WRITER.set_uart(&peripherals.uart0);
+    (*addr_of_mut!(io::WRITER)).set_uart(&peripherals.uart0);
 
     //set RX and TX pins in UART mode
     let gpio_tx = peripherals.pins.get_pin(RPGpio::GPIO0);
@@ -377,8 +375,11 @@ pub unsafe fn start() -> (
     )
     .finalize(components::console_component_static!());
     // Create the debugger object that handles calls to `debug!()`.
-    components::debug_writer::DebugWriterComponent::new(uart_mux)
-        .finalize(components::debug_writer_component_static!());
+    components::debug_writer::DebugWriterComponent::new(
+        uart_mux,
+        create_capability!(capabilities::SetDebugWriterCapability),
+    )
+    .finalize(components::debug_writer_component_static!());
 
     cdc.enable();
     cdc.attach();

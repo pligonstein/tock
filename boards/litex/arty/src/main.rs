@@ -6,9 +6,7 @@
 //! Digilent Arty-A7 FPGA board
 
 #![no_std]
-// Disable this attribute when documenting, as a workaround for
-// https://github.com/rust-lang/rust/issues/62184.
-#![cfg_attr(not(doc), no_main)]
+#![no_main]
 
 use core::ptr::{addr_of, addr_of_mut};
 
@@ -20,7 +18,7 @@ use kernel::hil::time::{Alarm, Timer};
 use kernel::platform::chip::InterruptService;
 use kernel::platform::scheduler_timer::VirtualSchedulerTimer;
 use kernel::platform::{KernelResources, SyscallDriverLookup};
-use kernel::scheduler::cooperative::CooperativeSched;
+use kernel::scheduler::mlfq::MLFQSched;
 use kernel::utilities::registers::interfaces::ReadWriteable;
 use kernel::utilities::StaticRef;
 use kernel::{create_capability, debug, static_init};
@@ -51,7 +49,11 @@ struct LiteXArtyInterruptablePeripherals {
         socc::SoCRegisterFmt,
         socc::ClockFrequency,
     >,
-    ethmac0: &'static litex_vexriscv::liteeth::LiteEth<'static, socc::SoCRegisterFmt>,
+    ethmac0: &'static litex_vexriscv::liteeth::LiteEth<
+        'static,
+        { socc::ETHMAC_TX_SLOTS },
+        socc::SoCRegisterFmt,
+    >,
 }
 
 impl LiteXArtyInterruptablePeripherals {
@@ -111,7 +113,7 @@ const FAULT_RESPONSE: capsules_system::process_policies::PanicFaultPolicy =
 /// Dummy buffer that causes the linker to reserve enough space for the stack.
 #[no_mangle]
 #[link_section = ".stack_buffer"]
-pub static mut STACK_MEMORY: [u8; 0x2000] = [0; 0x2000];
+static mut STACK_MEMORY: [u8; 0x2000] = [0; 0x2000];
 
 /// A structure representing this platform that holds references to all
 /// capsules for this platform.
@@ -153,7 +155,18 @@ struct LiteXArty {
         >,
     >,
     ipc: kernel::ipc::IPC<{ NUM_PROCS as u8 }>,
-    scheduler: &'static CooperativeSched<'static>,
+    scheduler: &'static MLFQSched<
+        'static,
+        VirtualMuxAlarm<
+            'static,
+            litex_vexriscv::timer::LiteXAlarm<
+                'static,
+                'static,
+                socc::SoCRegisterFmt,
+                socc::ClockFrequency,
+            >,
+        >,
+    >,
     scheduler_timer: &'static VirtualSchedulerTimer<
         VirtualMuxAlarm<
             'static,
@@ -190,7 +203,18 @@ impl KernelResources<litex_vexriscv::chip::LiteXVexRiscv<LiteXArtyInterruptableP
     type SyscallDriverLookup = Self;
     type SyscallFilter = ();
     type ProcessFault = ();
-    type Scheduler = CooperativeSched<'static>;
+    type Scheduler = MLFQSched<
+        'static,
+        VirtualMuxAlarm<
+            'static,
+            litex_vexriscv::timer::LiteXAlarm<
+                'static,
+                'static,
+                socc::SoCRegisterFmt,
+                socc::ClockFrequency,
+            >,
+        >,
+    >;
     type SchedulerTimer = VirtualSchedulerTimer<
         VirtualMuxAlarm<
             'static,
@@ -271,28 +295,28 @@ unsafe fn start() -> (
     // memory protection.
     let pmp = rv32i::pmp::kernel_protection::KernelProtectionPMP::new(
         rv32i::pmp::kernel_protection::FlashRegion(
-            rv32i::pmp::NAPOTRegionSpec::new(
+            rv32i::pmp::NAPOTRegionSpec::from_start_end(
                 core::ptr::addr_of!(_sflash),
-                core::ptr::addr_of!(_eflash) as usize - core::ptr::addr_of!(_sflash) as usize,
+                core::ptr::addr_of!(_eflash),
             )
             .unwrap(),
         ),
         rv32i::pmp::kernel_protection::RAMRegion(
-            rv32i::pmp::NAPOTRegionSpec::new(
+            rv32i::pmp::NAPOTRegionSpec::from_start_end(
                 core::ptr::addr_of!(_ssram),
-                core::ptr::addr_of!(_esram) as usize - core::ptr::addr_of!(_ssram) as usize,
+                core::ptr::addr_of!(_esram),
             )
             .unwrap(),
         ),
         rv32i::pmp::kernel_protection::MMIORegion(
-            rv32i::pmp::NAPOTRegionSpec::new(
+            rv32i::pmp::NAPOTRegionSpec::from_start_size(
                 0xf0000000 as *const u8, // start
                 0x10000000,              // size
             )
             .unwrap(),
         ),
         rv32i::pmp::kernel_protection::KernelTextRegion(
-            rv32i::pmp::TORRegionSpec::new(
+            rv32i::pmp::TORRegionSpec::from_start_end(
                 core::ptr::addr_of!(_stext),
                 core::ptr::addr_of!(_etext),
             )
@@ -469,12 +493,9 @@ unsafe fn start() -> (
 
     // ---------- ETHERNET ----------
 
-    // Packet receive buffer
-    let ethmac0_rxbuf0 = static_init!([u8; 1522], [0; 1522]);
-
     // ETHMAC peripheral
     let ethmac0 = static_init!(
-        litex_vexriscv::liteeth::LiteEth<socc::SoCRegisterFmt>,
+        litex_vexriscv::liteeth::LiteEth<{socc::ETHMAC_TX_SLOTS}, socc::SoCRegisterFmt>,
         litex_vexriscv::liteeth::LiteEth::new(
             StaticRef::new(
                 socc::CSR_ETHMAC_BASE
@@ -485,7 +506,6 @@ unsafe fn start() -> (
             socc::ETHMAC_SLOT_SIZE,
             socc::ETHMAC_RX_SLOTS,
             socc::ETHMAC_TX_SLOTS,
-            ethmac0_rxbuf0,
         )
     );
 
@@ -569,8 +589,11 @@ unsafe fn start() -> (
     .finalize(components::console_component_static!());
 
     // Create the debugger object that handles calls to `debug!()`.
-    components::debug_writer::DebugWriterComponent::new(uart_mux)
-        .finalize(components::debug_writer_component_static!());
+    components::debug_writer::DebugWriterComponent::new(
+        uart_mux,
+        create_capability!(capabilities::SetDebugWriterCapability),
+    )
+    .finalize(components::debug_writer_component_static!());
 
     let lldb = components::lldb::LowLevelDebugComponent::new(
         board_kernel,
@@ -579,9 +602,16 @@ unsafe fn start() -> (
     )
     .finalize(components::low_level_debug_component_static!());
 
-    let scheduler =
-        components::sched::cooperative::CooperativeComponent::new(&*addr_of!(PROCESSES))
-            .finalize(components::cooperative_component_static!(NUM_PROCS));
+    let scheduler = components::sched::mlfq::MLFQComponent::new(mux_alarm, &*addr_of!(PROCESSES))
+        .finalize(components::mlfq_component_static!(
+            litex_vexriscv::timer::LiteXAlarm<
+                'static,
+                'static,
+                socc::SoCRegisterFmt,
+                socc::ClockFrequency,
+            >,
+            NUM_PROCS
+        ));
 
     let litex_arty = LiteXArty {
         console,
@@ -598,8 +628,8 @@ unsafe fn start() -> (
         ),
     };
 
-    let _ = litex_arty.pconsole.start();
     debug!("LiteX+VexRiscv on ArtyA7: initialization complete, entering main loop.");
+    let _ = litex_arty.pconsole.start();
 
     kernel::process::load_processes(
         board_kernel,

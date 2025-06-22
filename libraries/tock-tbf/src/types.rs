@@ -258,6 +258,7 @@ pub enum TbfFooterV2CredentialsType {
     SHA256 = 3,
     SHA384 = 4,
     SHA512 = 5,
+    EcdsaNistP256 = 6,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -603,6 +604,7 @@ impl core::convert::TryFrom<&'static [u8]> for TbfFooterV2Credentials {
             3 => TbfFooterV2CredentialsType::SHA256,
             4 => TbfFooterV2CredentialsType::SHA384,
             5 => TbfFooterV2CredentialsType::SHA512,
+            6 => TbfFooterV2CredentialsType::EcdsaNistP256,
             _ => {
                 return Err(TbfParseError::BadTlvEntry(
                     TbfHeaderTypes::TbfFooterCredentials as usize,
@@ -616,6 +618,7 @@ impl core::convert::TryFrom<&'static [u8]> for TbfFooterV2Credentials {
             TbfFooterV2CredentialsType::SHA256 => 32,
             TbfFooterV2CredentialsType::SHA384 => 48,
             TbfFooterV2CredentialsType::SHA512 => 64,
+            TbfFooterV2CredentialsType::EcdsaNistP256 => 64,
         };
         let data = &b
             .get(4..(length + 4))
@@ -647,15 +650,15 @@ pub enum CommandPermissions {
 /// four since we need to statically know the length of the array to store in
 /// this type.
 #[derive(Clone, Copy, Debug)]
-pub struct TbfHeaderV2 {
+pub struct TbfHeaderV2<'a> {
     pub(crate) base: TbfHeaderV2Base,
     pub(crate) main: Option<TbfHeaderV2Main>,
     pub(crate) program: Option<TbfHeaderV2Program>,
-    pub(crate) package_name: Option<&'static str>,
-    pub(crate) writeable_regions: Option<&'static [u8]>,
-    pub(crate) fixed_addresses: Option<&'static [u8]>,
-    pub(crate) permissions: Option<&'static [u8]>,
-    pub(crate) storage_permissions: Option<&'static [u8]>,
+    pub(crate) package_name: Option<&'a str>,
+    pub(crate) writeable_regions: Option<&'a [u8]>,
+    pub(crate) fixed_addresses: Option<&'a [u8]>,
+    pub(crate) permissions: Option<&'a [u8]>,
+    pub(crate) storage_permissions: Option<&'a [u8]>,
     pub(crate) kernel_version: Option<TbfHeaderV2KernelVersion>,
     pub(crate) short_id: Option<TbfHeaderV2ShortId>,
 }
@@ -667,12 +670,12 @@ pub struct TbfHeaderV2 {
 /// The kernel can also use this header to keep persistent state about
 /// the application.
 #[derive(Debug)]
-pub enum TbfHeader {
-    TbfHeaderV2(TbfHeaderV2),
+pub enum TbfHeader<'a> {
+    TbfHeaderV2(TbfHeaderV2<'a>),
     Padding(TbfHeaderV2Base),
 }
 
-impl TbfHeader {
+impl<'a> TbfHeader<'a> {
     /// Return the length of the header.
     pub fn length(&self) -> u16 {
         match *self {
@@ -769,7 +772,7 @@ impl TbfHeader {
     }
 
     /// Get the name of the app.
-    pub fn get_package_name(&self) -> Option<&'static str> {
+    pub fn get_package_name(&self) -> Option<&'a str> {
         match *self {
             TbfHeader::TbfHeaderV2(hd) => hd.package_name,
             _ => None,
@@ -788,11 +791,11 @@ impl TbfHeader {
     }
 
     /// Get the offset and size of a given flash region.
-    pub fn get_writeable_flash_region(&self, index: usize) -> (u32, u32) {
+    pub fn get_writeable_flash_region(&self, index: usize) -> (usize, usize) {
         match *self {
             TbfHeader::TbfHeaderV2(hd) => hd.writeable_regions.map_or((0, 0), |wr_slice| {
                 fn get_region(
-                    wr_slice: &'static [u8],
+                    wr_slice: &[u8],
                     index: usize,
                 ) -> Result<TbfHeaderV2WriteableFlashRegion, ()> {
                     let wfr_len = size_of::<TbfHeaderV2WriteableFlashRegion>();
@@ -807,8 +810,8 @@ impl TbfHeader {
 
                 match get_region(wr_slice, index) {
                     Ok(wr) => (
-                        wr.writeable_flash_region_offset,
-                        wr.writeable_flash_region_size,
+                        wr.writeable_flash_region_offset as usize,
+                        wr.writeable_flash_region_size as usize,
                     ),
                     Err(()) => (0, 0),
                 }
@@ -863,7 +866,7 @@ impl TbfHeader {
                 Some(permissions_tlv_slice) => {
                     // Helper function to wrap the return in a Result.
                     fn get_command_permissions_result(
-                        permissions_tlv_slice: &'static [u8],
+                        permissions_tlv_slice: &[u8],
                         driver_num: usize,
                         offset: usize,
                     ) -> Result<CommandPermissions, ()> {

@@ -7,9 +7,7 @@
 //! - <https://www.sparkfun.com/products/15443>
 
 #![no_std]
-// Disable this attribute when documenting, as a workaround for
-// https://github.com/rust-lang/rust/issues/62184.
-#![cfg_attr(not(doc), no_main)]
+#![no_main]
 #![deny(missing_docs)]
 #![feature(custom_test_frameworks)]
 #![test_runner(test_runner)]
@@ -80,7 +78,7 @@ static mut CCS811: Option<&'static capsules_extra::ccs811::Ccs811<'static>> = No
 /// Dummy buffer that causes the linker to reserve enough space for the stack.
 #[no_mangle]
 #[link_section = ".stack_buffer"]
-pub static mut STACK_MEMORY: [u8; 0x1000] = [0; 0x1000];
+static mut STACK_MEMORY: [u8; 0x1000] = [0; 0x1000];
 
 type BME280Sensor = components::bme280::Bme280ComponentType<
     capsules_core::virtualizers::virtual_i2c::I2CDevice<'static, apollo3::iom::Iom<'static>>,
@@ -247,8 +245,11 @@ unsafe fn setup() -> (
     )
     .finalize(components::console_component_static!());
     // Create the debugger object that handles calls to `debug!()`.
-    components::debug_writer::DebugWriterComponent::new(uart_mux)
-        .finalize(components::debug_writer_component_static!());
+    components::debug_writer::DebugWriterComponent::new(
+        uart_mux,
+        create_capability!(capabilities::SetDebugWriterCapability),
+    )
+    .finalize(components::debug_writer_component_static!());
 
     // LEDs
     let led = components::led::LedsComponent::new().finalize(components::led_component_static!(

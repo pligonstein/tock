@@ -5,9 +5,7 @@
 //! Board file for the SiFive E21 Bitstream running on the Arty FPGA
 
 #![no_std]
-// Disable this attribute when documenting, as a workaround for
-// https://github.com/rust-lang/rust/issues/62184.
-#![cfg_attr(not(doc), no_main)]
+#![no_main]
 
 use core::ptr::{addr_of, addr_of_mut};
 
@@ -47,7 +45,7 @@ static mut PROCESS_PRINTER: Option<&'static capsules_system::process_printer::Pr
 /// Dummy buffer that causes the linker to reserve enough space for the stack.
 #[no_mangle]
 #[link_section = ".stack_buffer"]
-pub static mut STACK_MEMORY: [u8; 0x1000] = [0; 0x1000];
+static mut STACK_MEMORY: [u8; 0x1000] = [0; 0x1000];
 
 /// A structure representing this platform that holds references to all
 /// capsules for this platform.
@@ -253,8 +251,11 @@ unsafe fn start() -> (
     };
 
     // Create virtual device for kernel debug.
-    components::debug_writer::DebugWriterComponent::new(uart_mux)
-        .finalize(components::debug_writer_component_static!());
+    components::debug_writer::DebugWriterComponent::new(
+        uart_mux,
+        create_capability!(capabilities::SetDebugWriterCapability),
+    )
+    .finalize(components::debug_writer_component_static!());
 
     // arty_e21_chip::uart::UART0.initialize_gpio_pins(&peripherals.gpio_port[17], &peripherals.gpio_port[16]);
 

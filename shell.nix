@@ -24,15 +24,15 @@ let
   tockloader = import (pkgs.fetchFromGitHub {
     owner = "tock";
     repo = "tockloader";
-    rev = "v1.12.0";
-    sha256 = "sha256-VgbAKDY/7ZVINDkqSHF7C0zRzVgtk8YG6O/ZmUpsh/g=";
+    rev = "v1.14.0";
+    sha256 = "sha256-TsJEPQhJVTJt1g/EEIaGuwVIjD5Q65mHKkpbY5ru+JI=";
   }) { inherit pkgs withUnfreePkgs; };
 
   rust_overlay = import "${pkgs.fetchFromGitHub {
     owner = "nix-community";
     repo = "fenix";
-    rev = "1a92c6d75963fd594116913c23041da48ed9e020";
-    sha256 = "sha256-L3vZfifHmog7sJvzXk8qiKISkpyltb+GaThqMJ7PU9Y=";
+    rev = "3743208cafd7bc3c150f0c77c25ef7430e9c0de2";
+    sha256 = "sha256-a5EMHpDAxLShxBKUdDVmqZMlfiuOtOUzet2xT/E/RiM=";
   }}/overlay.nix";
 
   nixpkgs = import <nixpkgs> { overlays = [ rust_overlay ]; };

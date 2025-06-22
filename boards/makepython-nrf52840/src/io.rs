@@ -109,13 +109,13 @@ impl IoWrite for Writer {
                         n.clear_pending();
                         n.enable();
                     }
-                    if DUMMY.fired.get() {
+                    if (*addr_of!(DUMMY)).fired.get() {
                         // buffer finished transmitting, return so we can output additional
                         // messages when requested by the panic handler.
                         break;
                     }
                 }
-                DUMMY.fired.set(false);
+                (*addr_of!(DUMMY)).fired.set(false);
             });
         }
         buf.len()
@@ -124,7 +124,6 @@ impl IoWrite for Writer {
 
 /// We just use the standard default provided by the debug module in the kernel.
 #[cfg(not(test))]
-#[no_mangle]
 #[panic_handler]
 pub unsafe fn panic_fmt(pi: &PanicInfo) -> ! {
     let led_kernel_pin = &nrf52840::gpio::GPIOPin::new(Pin::P1_10);

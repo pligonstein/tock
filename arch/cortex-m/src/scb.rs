@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 // Copyright Tock Contributors 2022.
 
-//! ARM System Control Block
+//! Cortex-M System Control Block (SCB)
 //!
 //! <http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0553a/CIHFDJCA.html>
 
@@ -275,9 +275,25 @@ const SCB: StaticRef<ScbRegisters> = unsafe { StaticRef::new(0xE000ED00 as *cons
 /// Allow the core to go into deep sleep on WFI.
 ///
 /// The specific definition of "deep sleep" is chip specific.
+#[cfg(any(doc, all(target_arch = "arm", target_os = "none")))]
 pub unsafe fn set_sleepdeep() {
+    use core::arch::asm;
+
     SCB.scr.modify(SystemControl::SLEEPDEEP::SET);
+
+    asm!("dsb", "isb", options(nomem, nostack, preserves_flags));
 }
+
+// Mock implementation for tests on Travis-CI.
+#[cfg(not(any(doc, all(target_arch = "arm", target_os = "none"))))]
+pub unsafe fn set_sleepdeep() {
+    // Dummy operation to satisfy the `Writable` trait import on
+    // non-ARM platforms.
+    SCB.scr.modify(SystemControl::SLEEPDEEP::SET);
+
+    unimplemented!()
+}
+
 /// Do not allow the core to go into deep sleep on WFI.
 ///
 /// The specific definition of "deep sleep" is chip specific.

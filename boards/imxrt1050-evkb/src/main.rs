@@ -69,7 +69,7 @@ static BOOT_HDR: [u8; 8192] = boot_header::BOOT_HDR;
 /// Dummy buffer that causes the linker to reserve enough space for the stack.
 #[no_mangle]
 #[link_section = ".stack_buffer"]
-pub static mut STACK_MEMORY: [u8; 0x2000] = [0; 0x2000];
+static mut STACK_MEMORY: [u8; 0x2000] = [0; 0x2000];
 
 // const NUM_LEDS: usize = 1;
 
@@ -304,7 +304,7 @@ unsafe fn start() -> (
 
     let lpuart_mux = components::console::UartMuxComponent::new(&peripherals.lpuart1, 115200)
         .finalize(components::uart_mux_component_static!());
-    io::WRITER.set_initialized();
+    (*addr_of_mut!(io::WRITER)).set_initialized();
 
     // Create capabilities that the board needs to call certain protected kernel
     // functions.
@@ -320,8 +320,11 @@ unsafe fn start() -> (
     )
     .finalize(components::console_component_static!());
     // Create the debugger object that handles calls to `debug!()`.
-    components::debug_writer::DebugWriterComponent::new(lpuart_mux)
-        .finalize(components::debug_writer_component_static!());
+    components::debug_writer::DebugWriterComponent::new(
+        lpuart_mux,
+        create_capability!(capabilities::SetDebugWriterCapability),
+    )
+    .finalize(components::debug_writer_component_static!());
 
     // LEDs
 

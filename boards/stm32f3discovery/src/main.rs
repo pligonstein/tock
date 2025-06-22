@@ -7,9 +7,7 @@
 //! - <https://www.st.com/en/evaluation-tools/stm32f3discovery.html>
 
 #![no_std]
-// Disable this attribute when documenting, as a workaround for
-// https://github.com/rust-lang/rust/issues/62184.
-#![cfg_attr(not(doc), no_main)]
+#![no_main]
 #![deny(missing_docs)]
 
 use core::ptr::addr_of;
@@ -57,7 +55,7 @@ const FAULT_RESPONSE: capsules_system::process_policies::PanicFaultPolicy =
 /// Dummy buffer that causes the linker to reserve enough space for the stack.
 #[no_mangle]
 #[link_section = ".stack_buffer"]
-pub static mut STACK_MEMORY: [u8; 0x1700] = [0; 0x1700];
+static mut STACK_MEMORY: [u8; 0x1700] = [0; 0x1700];
 
 type L3GD20Sensor = components::l3gd20::L3gd20ComponentType<
     capsules_core::virtualizers::virtual_spi::VirtualSpiMasterDevice<
@@ -422,7 +420,7 @@ unsafe fn start() -> (
 
     // `finalize()` configures the underlying USART, so we need to
     // tell `send_byte()` not to configure the USART again.
-    io::WRITER.set_initialized();
+    (*addr_of_mut!(io::WRITER)).set_initialized();
 
     // Create capabilities that the board needs to call certain protected kernel
     // functions.
@@ -438,8 +436,11 @@ unsafe fn start() -> (
     )
     .finalize(components::console_component_static!());
     // Create the debugger object that handles calls to `debug!()`.
-    components::debug_writer::DebugWriterComponent::new(uart_mux)
-        .finalize(components::debug_writer_component_static!());
+    components::debug_writer::DebugWriterComponent::new(
+        uart_mux,
+        create_capability!(capabilities::SetDebugWriterCapability),
+    )
+    .finalize(components::debug_writer_component_static!());
 
     // LEDs
 
@@ -806,7 +807,8 @@ unsafe fn start() -> (
         nonvolatile_storage,
 
         scheduler,
-        systick: cortexm4::systick::SysTick::new(),
+        // Systick uses the HSI, which runs at 8MHz
+        systick: cortexm4::systick::SysTick::new_with_calibration(8_000_000),
         watchdog: &peripherals.watchdog,
     };
 

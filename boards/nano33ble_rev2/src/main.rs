@@ -7,9 +7,7 @@
 //! It is based on nRF52840 SoC (Cortex M4 core with a BLE + IEEE 802.15.4 transceiver).
 
 #![no_std]
-// Disable this attribute when documenting, as a workaround for
-// https://github.com/rust-lang/rust/issues/62184.
-#![cfg_attr(not(doc), no_main)]
+#![no_main]
 #![deny(missing_docs)]
 
 use core::ptr::addr_of;
@@ -104,7 +102,7 @@ static mut NRF52_POWER: Option<&'static nrf52840::power::Power> = None;
 /// Dummy buffer that causes the linker to reserve enough space for the stack.
 #[no_mangle]
 #[link_section = ".stack_buffer"]
-pub static mut STACK_MEMORY: [u8; 0x1000] = [0; 0x1000];
+static mut STACK_MEMORY: [u8; 0x1000] = [0; 0x1000];
 
 // Function for the CDC/USB stack to use to enter the bootloader.
 fn baud_rate_reset_bootloader_enter() {
@@ -359,7 +357,7 @@ pub unsafe fn start() -> (
     // DEVICEADDR register on the nRF52 to set the serial number.
     let serial_number_buf = static_init!([u8; 17], [0; 17]);
     let serial_number_string: &'static str =
-        nrf52::ficr::FICR_INSTANCE.address_str(serial_number_buf);
+        (*addr_of!(nrf52::ficr::FICR_INSTANCE)).address_str(serial_number_buf);
     let strings = static_init!(
         [&str; 3],
         [
@@ -412,8 +410,11 @@ pub unsafe fn start() -> (
     )
     .finalize(components::console_component_static!());
     // Create the debugger object that handles calls to `debug!()`.
-    components::debug_writer::DebugWriterComponent::new(uart_mux)
-        .finalize(components::debug_writer_component_static!());
+    components::debug_writer::DebugWriterComponent::new(
+        uart_mux,
+        create_capability!(capabilities::SetDebugWriterCapability),
+    )
+    .finalize(components::debug_writer_component_static!());
 
     //--------------------------------------------------------------------------
     // RANDOM NUMBERS
@@ -565,7 +566,7 @@ pub unsafe fn start() -> (
             nrf52840::aes::AesECB
         ));
 
-    let device_id = nrf52840::ficr::FICR_INSTANCE.id();
+    let device_id = (*addr_of!(nrf52840::ficr::FICR_INSTANCE)).id();
     let device_id_bottom_16 = u16::from_le_bytes([device_id[0], device_id[1]]);
     let (ieee802154_radio, mux_mac) = components::ieee802154::Ieee802154Component::new(
         board_kernel,

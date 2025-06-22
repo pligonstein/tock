@@ -7,9 +7,7 @@
 //! - <https://www.st.com/en/evaluation-tools/nucleo-f446re.html>
 
 #![no_std]
-// Disable this attribute when documenting, as a workaround for
-// https://github.com/rust-lang/rust/issues/62184.
-#![cfg_attr(not(doc), no_main)]
+#![no_main]
 #![deny(missing_docs)]
 
 use core::ptr::{addr_of, addr_of_mut};
@@ -24,6 +22,7 @@ use kernel::platform::{KernelResources, SyscallDriverLookup};
 use kernel::scheduler::round_robin::RoundRobinSched;
 use kernel::{create_capability, debug, static_init};
 use stm32f446re::chip_specs::Stm32f446Specs;
+use stm32f446re::clocks::hsi::HSI_FREQUENCY_MHZ;
 use stm32f446re::gpio::{AlternateFunction, Mode, PinId, PortId};
 use stm32f446re::interrupt_service::Stm32f446reDefaultPeripherals;
 
@@ -55,7 +54,7 @@ const FAULT_RESPONSE: capsules_system::process_policies::PanicFaultPolicy =
 /// Dummy buffer that causes the linker to reserve enough space for the stack.
 #[no_mangle]
 #[link_section = ".stack_buffer"]
-pub static mut STACK_MEMORY: [u8; 0x2000] = [0; 0x2000];
+static mut STACK_MEMORY: [u8; 0x2000] = [0; 0x2000];
 
 type TemperatureSTMSensor = components::temperature_stm::TemperatureSTMComponentType<
     capsules_core::virtualizers::virtual_adc::AdcDevice<'static, stm32f446re::adc::Adc<'static>>,
@@ -321,7 +320,7 @@ unsafe fn start() -> (
 
     // `finalize()` configures the underlying USART, so we need to
     // tell `send_byte()` not to configure the USART again.
-    io::WRITER.set_initialized();
+    (*addr_of_mut!(io::WRITER)).set_initialized();
 
     // Create capabilities that the board needs to call certain protected kernel
     // functions.
@@ -337,8 +336,11 @@ unsafe fn start() -> (
     )
     .finalize(components::console_component_static!());
     // Create the debugger object that handles calls to `debug!()`.
-    components::debug_writer::DebugWriterComponent::new(uart_mux)
-        .finalize(components::debug_writer_component_static!());
+    components::debug_writer::DebugWriterComponent::new(
+        uart_mux,
+        create_capability!(capabilities::SetDebugWriterCapability),
+    )
+    .finalize(components::debug_writer_component_static!());
 
     // LEDs
     let gpio_ports = &base_peripherals.gpio_ports;
@@ -507,7 +509,9 @@ unsafe fn start() -> (
         gpio,
 
         scheduler,
-        systick: cortexm4::systick::SysTick::new(),
+        systick: cortexm4::systick::SysTick::new_with_calibration(
+            (HSI_FREQUENCY_MHZ * 1_000_000) as u32,
+        ),
     };
 
     // // Optional kernel tests

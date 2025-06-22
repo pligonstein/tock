@@ -5,9 +5,7 @@
 //! Tock kernel for the Nordic Semiconductor nRF52840 development kit (DK).
 
 #![no_std]
-// Disable this attribute when documenting, as a workaround for
-// https://github.com/rust-lang/rust/issues/62184.
-#![cfg_attr(not(doc), no_main)]
+#![no_main]
 #![deny(missing_docs)]
 
 use capsules_core::test::capsule_test::{CapsuleTestClient, CapsuleTestError};
@@ -49,7 +47,7 @@ static mut PROCESS_PRINTER: Option<&'static capsules_system::process_printer::Pr
 /// Dummy buffer that causes the linker to reserve enough space for the stack.
 #[no_mangle]
 #[link_section = ".stack_buffer"]
-pub static mut STACK_MEMORY: [u8; 0x2000] = [0; 0x2000];
+static mut STACK_MEMORY: [u8; 0x2000] = [0; 0x2000];
 
 //------------------------------------------------------------------------------
 // SYSCALL DRIVER TYPE DEFINITIONS
@@ -96,6 +94,7 @@ impl TestLauncher {
             3 => unsafe { test::aes_test::run_aes128_ctr(&self.peripherals.ecb, self) },
             4 => unsafe { test::aes_test::run_aes128_cbc(&self.peripherals.ecb, self) },
             5 => unsafe { test::aes_test::run_aes128_ecb(&self.peripherals.ecb, self) },
+            6 => unsafe { test::ecdsa_p256_test::run_ecdsa_p256(self) },
             _ => kernel::debug!("All tests finished."),
         }
     }
@@ -232,8 +231,11 @@ pub unsafe fn main() {
         .finalize(components::uart_mux_component_static!());
 
     // Create the debugger object that handles calls to `debug!()`.
-    components::debug_writer::DebugWriterComponent::new(uart_mux)
-        .finalize(components::debug_writer_component_static!());
+    components::debug_writer::DebugWriterComponent::new(
+        uart_mux,
+        create_capability!(capabilities::SetDebugWriterCapability),
+    )
+    .finalize(components::debug_writer_component_static!());
 
     //--------------------------------------------------------------------------
     // NRF CLOCK SETUP

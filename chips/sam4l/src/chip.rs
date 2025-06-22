@@ -20,7 +20,7 @@ pub struct Sam4l<I: InterruptService + 'static> {
 impl<I: InterruptService + 'static> Sam4l<I> {
     pub unsafe fn new(pm: &'static crate::pm::PowerManager, interrupt_service: &'static I) -> Self {
         Self {
-            mpu: cortexm4::mpu::MPU::new(),
+            mpu: cortexm4::mpu::new(),
             userspace_kernel_boundary: cortexm4::syscall::SysCall::new(),
             pm,
             interrupt_service,
@@ -29,6 +29,7 @@ impl<I: InterruptService + 'static> Sam4l<I> {
 }
 
 /// This struct, when initialized, instantiates all peripheral drivers for the apollo3.
+///
 /// If a board wishes to use only a subset of these peripherals, this
 /// should not be used or imported, and a modified version should be
 /// constructed manually in main.rs.

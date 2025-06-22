@@ -3,8 +3,6 @@
 // Copyright Tock Contributors 2022.
 
 #![no_std]
-#![crate_name = "nrf52"]
-#![crate_type = "rlib"]
 
 pub mod acomp;
 pub mod adc;
@@ -15,6 +13,7 @@ pub mod clock;
 pub mod crt1;
 pub mod ficr;
 pub mod i2c;
+pub mod ieee802154_radio;
 pub mod nvmc;
 pub mod power;
 pub mod ppi;

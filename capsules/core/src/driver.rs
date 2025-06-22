@@ -26,6 +26,8 @@ pub enum NUM {
 
     // Kernel
     Ipc                   = 0x10000,
+    AppLoader             = 0x10001,
+    ProcessInfo           = 0x10002,
 
     // HW Buses
     Spi                   = 0x20001,
@@ -35,7 +37,7 @@ pub enum NUM {
     I2cMasterSlave        = 0x20006,
     Can                   = 0x20007,
 
-    // Radio
+    // Networking
     BleAdvertising        = 0x30000,
     Ieee802154            = 0x30001,
     Udp                   = 0x30002,
@@ -43,6 +45,7 @@ pub enum NUM {
     LoRaPhyGPIO           = 0x30004,
     Thread                = 0x30005,
     Eui64                 = 0x30006,
+    EthernetTap           = 0x30007,
 
     // Cryptography
     Rng                   = 0x40001,
@@ -57,6 +60,7 @@ pub enum NUM {
     NvmStorage            = 0x50001,
     SdCard                = 0x50002,
     Kv                    = 0x50003,
+    IsolatedNvmStorage    = 0x50004,
 
     // Sensors
     Temperature           = 0x60000,
@@ -67,6 +71,9 @@ pub enum NUM {
     SoundPressure         = 0x60006,
     AirQuality            = 0x60007,
     Pressure              = 0x60008,
+    Distance              = 0x60009,
+    Moisture              = 0x6000A,
+    RainFall              = 0x6000B,
 
     // Sensor ICs
     Tsl2561               = 0x70000,
@@ -93,5 +100,6 @@ pub enum NUM {
     KeyboardHid           = 0x90005,
     DateTime              = 0x90007,
     CycleCount            = 0x90008,
+    Servo                 = 0x90009,
 }
 }

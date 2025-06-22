@@ -23,6 +23,9 @@ These implement a driver to setup and read various physical sensors.
 - **[BMM150](src/bmm150.rs)**: Geomagnetic sensor.
 - **[BMP280](src/bmp280.rs)**: Temperature (and air pressure) sensor.
 - **[CCS811](src/ccs811.rs)**: VOC gas sensor.
+- **[Chirp I2C Moisture](src/chirp_i2c_moisture.rs)**: I2C moisture sensor
+    from Chirp project.
+- **[DFRobot Rainfall Sensor](src/dfrobot_rainfall_sensor.rs)**: Rainfall sensor.
 - **[FXOS8700CQ](src/fxos8700cq.rs)**: Accelerometer and magnetometer.
 - **[HS3003](src/hs3003.rs)**: Temperature and humidity sensor.
 - **[HTS221](src/hts221.rs)**: Temperature and humidity sensor.
@@ -47,6 +50,7 @@ These implement a driver to setup and read various physical sensors.
 - **[STM32 Temperature](src/temperature_stm.rs)**: Analog STM32 temperature
   sensor.
 - **[TSL2561](src/tsl2561.rs)**: Light sensor.
+- **[HC-SR04](src/hc_sr04.rs)**: Ultrasonic distance sensor
 
 These drivers provide support for various ICs.
 
@@ -67,10 +71,10 @@ These drivers provide support for various ICs.
 - **[ST77xx](src/st77xx.rs)**: ST77xx IPS screen.
 
 
-Wireless
+Wireless and Networking
 --------
 
-Support for wireless radios.
+Support for wireless radios, network stacks and related infrastructure.
 
 - **[nRF51822 Serialization](src/nrf51822_serialization.rs)**: Kernel support
   for using the nRF51 serialization library.
@@ -79,7 +83,9 @@ Support for wireless radios.
   advertisements.
 - **[LoRa Phy]**: Support for exposing Semtech devices to userspace
   See the lora_things_plus board for an example
-
+- **[Ethernet Tap Driver](src/ethernet_tap.rs)**: Forwarding raw IEEE
+  802.3 Ethernet frames from / to userspace. Useful for running
+  network stacks in userspace.
 
 Libraries
 ---------
@@ -115,16 +121,21 @@ These provide common and better abstractions for userspace.
 - **[Ambient Light](src/ambient_light.rs)**: Query light sensors.
 - **[App Flash](src/app_flash_driver.rs)**: Allow applications to write their
   own flash.
+- **[App Loader](src/app_loader.rs)**: Allow applications to request to 
+  install and load new applications.
 - **[Buzzer](src/buzzer_driver.rs)**: Simple buzzer.
+- **[Servo](src/servo.rs)**: Servo motor.
 - **[Date-Time](src/date_time.rs)**: Real time clock date/time support.
 - **[EUI64](src/eui64.rs)**: Query device's extended unique ID.
 - **[HMAC](src/hmac.rs)**: Hash-based Message Authentication Code support.
 - **[Humidity](src/humidity.rs)**: Query humidity sensors.
 - **[Key-Value Store](src/kv_driver.rs)**: Store key-value data.
 - **[LED Matrix](src/led_matrix.rs)**: Control a 2D array of LEDs.
+- **[Moisture](src/moisture.rs)**: Query moisture sensors.
 - **[Pressure](src/pressure.rs)**: Pressure sensors.
 - **[Proximity](src/proximity.rs)**: Proximity sensors.
 - **[PWM](src/pwm.rs)**: Pulse-width modulation support.
+- **[Rainfall](src/rainfall.rs)**: Query rainfall sensors.
 - **[Read Only State](src/read_only_state.rs)**: Read-only state sharing.
 - **[Screen](src/screen.rs)**: Displays and screens.
 - **[Screen Shared](src/screen_shared.rs)**: App-specific screen windows.
@@ -133,6 +144,7 @@ These provide common and better abstractions for userspace.
 - **[Temperature](src/temperature.rs)**: Query temperature sensors.
 - **[Text Screen](src/text_screen.rs)**: Text-based displays.
 - **[Touch](src/touch.rs)**: User touch panels.
+- **[Distance](src/distance.rs)**: Distance sensor.
 
 
 Virtualized Sensor Capsules for Userspace
@@ -147,6 +159,8 @@ simultaneously) support for generic sensor interfaces.
   gyroscope).
 - **[Nonvolatile Storage](src/nonvolatile_storage_driver.rs)**: Persistent
   storage for userspace.
+- **[Isolated Nonvolatile Storage](src/isolated_nonvolatile_storage_driver.rs)**:
+  Per-app isolated persistent storage for userspace.
 
 
 Utility Capsules
@@ -156,6 +170,7 @@ Other capsules that implement reusable logic.
 
 - **[Bus Adapters](src/bus.rs)**: Generic abstraction for SPI/I2C/8080.
 - **[Buzzer PWM](src/buzzer_pwm.rs)**: Buzzer with a PWM pin.
+- **[SG90 PWM](src/sg90.rs)**: SG90 servomotor.
 - **[HMAC-SHA256](src/hmac_sha256.rs)**: HMAC using SHA-256.
 - **[Key-Value Store with Permissions](src/kv_store_permissions.rs)**: Key-value
   interface that requires read/write permissions.
@@ -163,6 +178,8 @@ Other capsules that implement reusable logic.
 - **[Nonvolatile to Pages](src/nonvolatile_to_pages.rs)**: Map arbitrary reads
   and writes to flash pages.
 - **[SHA256](src/sha256.rs)**: SHA256 software hash.
+- **[SignatureVerifyInMemoryKeys](src/signature_verify_in_memory_keys.rs)**:
+  Signature verification with multiple in-memory keys.
 - **[SipHash](src/sip_hash.rs)**: SipHash software hash.
 - **[TicKV](src/tickv.rs)**: Key-value storage.
 - **[TicKV KV Store](src/tickv_kv_store.rs)**: Provide `hil::kv::KV` with TickV.
@@ -180,3 +197,5 @@ various elements of Tock.
 - **[Debug Process Restart](src/debug_process_restart.rs)**: Force all processes
   to enter a fault state when a button is pressed.
 - **[Panic Button](src/panic_button.rs)**: Use a button to force a `panic!()`.
+- **[Process Info](src/process_info_driver.rs)**: Inspect and control processes.
+

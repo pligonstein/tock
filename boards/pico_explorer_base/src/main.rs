@@ -7,9 +7,7 @@
 //! It is based on RP2040SoC SoC (Cortex M0+).
 
 #![no_std]
-// Disable this attribute when documenting, as a workaround for
-// https://github.com/rust-lang/rust/issues/62184.
-#![cfg_attr(not(doc), no_main)]
+#![no_main]
 #![deny(missing_docs)]
 
 use core::ptr::{addr_of, addr_of_mut};
@@ -34,6 +32,8 @@ use rp2040::clocks::{
     SystemAuxiliaryClockSource, SystemClockSource, UsbAuxiliaryClockSource,
 };
 use rp2040::gpio::{GpioFunction, RPGpio, RPGpioPin};
+use rp2040::pio::Pio;
+use rp2040::pio_pwm::PioPwm;
 use rp2040::resets::Peripheral;
 use rp2040::spi::Spi;
 use rp2040::sysinfo;
@@ -46,7 +46,7 @@ mod flash_bootloader;
 /// Allocate memory for the stack
 #[no_mangle]
 #[link_section = ".stack_buffer"]
-pub static mut STACK_MEMORY: [u8; 0x1500] = [0; 0x1500];
+static mut STACK_MEMORY: [u8; 0x1500] = [0; 0x1500];
 
 // Manually setting the boot header section that contains the FCB header
 #[used]
@@ -302,9 +302,6 @@ pub unsafe fn start() -> (
     // Unreset all peripherals
     peripherals.resets.unreset_all_except(&[], true);
 
-    // Set the UART used for panic
-    io::WRITER.set_uart(&peripherals.uart0);
-
     //set RX and TX pins in UART mode
     let gpio_tx = peripherals.pins.get_pin(RPGpio::GPIO0);
     let gpio_rx = peripherals.pins.get_pin(RPGpio::GPIO1);
@@ -312,7 +309,7 @@ pub unsafe fn start() -> (
     gpio_tx.set_function(GpioFunction::UART);
 
     // Set the UART used for panic
-    io::WRITER.set_uart(&peripherals.uart0);
+    (*addr_of_mut!(io::WRITER)).set_uart(&peripherals.uart0);
 
     // Disable IE for pads 26-29 (the Pico SDK runtime does this, not sure why)
     for pin in 26..30 {
@@ -376,11 +373,8 @@ pub unsafe fn start() -> (
         .finalize(components::uart_mux_component_static!());
 
     // Uncomment this to use UART as an output
-    // let uart_mux = components::console::UartMuxComponent::new(
-    //     &peripherals.uart0,
-    //     115200,
-    // )
-    // .finalize(components::uart_mux_component_static!());
+    // let uart_mux = components::console::UartMuxComponent::new(&peripherals.uart0, 115200)
+    //     .finalize(components::uart_mux_component_static!());
 
     // Setup the console.
     let console = components::console::ConsoleComponent::new(
@@ -390,8 +384,11 @@ pub unsafe fn start() -> (
     )
     .finalize(components::console_component_static!());
     // Create the debugger object that handles calls to `debug!()`.
-    components::debug_writer::DebugWriterComponent::new(uart_mux)
-        .finalize(components::debug_writer_component_static!());
+    components::debug_writer::DebugWriterComponent::new(
+        uart_mux,
+        create_capability!(capabilities::SetDebugWriterCapability),
+    )
+    .finalize(components::debug_writer_component_static!());
 
     cdc.enable();
     cdc.attach();
@@ -693,6 +690,22 @@ pub unsafe fn start() -> (
         debug!("Error loading processes!");
         debug!("{:?}", err);
     });
+
+    //--------------------------------------------------------------------------
+    // PIO
+    //--------------------------------------------------------------------------
+
+    let mut pio: Pio = Pio::new_pio0();
+
+    let _pio_pwm = PioPwm::new(&mut pio, &peripherals.clocks);
+    // This will start a PWM with PIO with the set frequency and duty cycle on the specified pin.
+    // pio_pwm
+    //     .start(
+    //         &RPGpio::GPIO7,
+    //         pio_pwm.get_maximum_frequency_hz() / 125000, /*1_000*/
+    //         pio_pwm.get_maximum_duty_cycle() / 2,
+    //     )
+    //     .unwrap();
 
     (board_kernel, pico_explorer_base, chip)
 }

@@ -14,12 +14,14 @@ members = [
     "arch/cortex-m33",
     "arch/riscv",
     "arch/rv32i",
-    "boards/acd52832",
+    "arch/x86",
     "boards/nano_rp2040_connect",
     "boards/arty_e21",
     "boards/opentitan/earlgrey-cw310",
     "boards/esp32-c3-devkitM-1",
+    "boards/cy8cproto_62_4343_w",
     "boards/clue_nrf52840",
+    "boards/veer_el2_sim",
     "boards/hail",
     "boards/hifive_inventor",
     "boards/hifive1",
@@ -50,15 +52,22 @@ members = [
     "boards/teensy40",
     "boards/nano33ble",
     "boards/nano33ble_rev2",
+    "boards/qemu_i486_q35",
     "boards/qemu_rv32_virt",
-    "boards/swervolf",
     "boards/weact_f401ccu6/",
+    "boards/configurations/nrf52840dk/nrf52840dk-test-appid-ecdsap256",
     "boards/configurations/nrf52840dk/nrf52840dk-test-appid-sha256",
     "boards/configurations/nrf52840dk/nrf52840dk-test-appid-tbf",
+    "boards/configurations/nrf52840dk/nrf52840dk-test-invs",
     "boards/configurations/nrf52840dk/nrf52840dk-test-kernel",
+    "boards/configurations/nrf52840dk/nrf52840dk-test-dynamic-app-load",
+    "boards/configurations/microbit_v2/microbit_v2-test-dynamic-app-load",
+    "boards/tutorials/nrf52840dk-root-of-trust-tutorial",
+    "boards/tutorials/nrf52840dk-dynamic-apps-and-policies",
     "boards/tutorials/nrf52840dk-hotp-tutorial",
     "boards/tutorials/nrf52840dk-thread-tutorial",
     "capsules/aes_gcm",
+    "capsules/ecdsa_sw",
     "capsules/core",
     "capsules/extra",
     "capsules/system",
@@ -80,7 +89,9 @@ members = [
     "chips/nrf52833",
     "chips/nrf52840",
     "chips/nrf5x",
+    "chips/x86_q35",
     "chips/qemu_rv32_virt_chip",
+    "chips/psoc62xa",
     "chips/rp2040",
     "chips/sam4l",
     "chips/segger",
@@ -91,8 +102,7 @@ members = [
     "chips/stm32f446re",
     "chips/stm32f412g",
     "chips/stm32f4xx",
-    "chips/swerv",
-    "chips/swervolf-eh1",
+    "chips/veer_el2",
     "chips/virtio",
     "kernel",
     "libraries/enum_primitive",
@@ -105,7 +115,7 @@ exclude = ["tools/"]
 resolver = "2"
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.3-dev"
 authors = ["Tock Project Developers <tock-dev@googlegroups.com>"]
 edition = "2021"
 
@@ -150,13 +160,18 @@ manual_unwrap_or_default = "allow"
 # COMPLEXITY LINTS
 complexity = { level = "deny", priority = -1 }
 
+# Subjective, and complex functions may need many arguments.
 too_many_arguments = "allow"
+# This is pretty sensitive, even `Result`s with returned buffers trigger this.
+# It is not worth us creating types for all of these.
 type_complexity = "allow"
+# We use options extensively and they can be as clear as if let statements.
 option_map_unit_fn = "allow"
+# Sometimes the semantic meaning of variables means it is more clear to use
+# nonminimal if statements, particularly when matching hardware or datasheets.
 nonminimal_bool = "allow"
 identity-op = "allow"
 while-let-loop = "allow"
-only_used_in_recursion = "allow"
 manual-range-patterns = "allow"
 manual-flatten = "allow"
 
@@ -228,7 +243,6 @@ branches_sharing_code = "allow"
 missing_const_for_fn = "allow"
 redundant_pub_crate = "allow"
 equatable_if_let = "allow"
-fallible_impl_from = "allow"
 derive_partial_eq_without_eq = "allow"
 empty_line_after_doc_comments = "allow"
 trait_duplication_in_bounds = "allow"
@@ -267,6 +281,7 @@ verbose_bit_mask = "allow"
 large_types_passed_by_value = "allow"
 no_mangle_with_rust_abi = "allow"
 struct_field_names = "allow"
+needless_continue = "allow"
 
 
 cast_lossless = "allow"

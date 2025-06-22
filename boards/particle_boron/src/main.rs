@@ -8,9 +8,7 @@
 //! many exported I/O and peripherals.
 
 #![no_std]
-// Disable this attribute when documenting, as a workaround for
-// https://github.com/rust-lang/rust/issues/62184.
-#![cfg_attr(not(doc), no_main)]
+#![no_main]
 #![deny(missing_docs)]
 
 use core::ptr::addr_of;
@@ -91,7 +89,7 @@ static mut NRF52_POWER: Option<&'static nrf52840::power::Power> = None;
 /// Dummy buffer that causes the linker to reserve enough space for the stack.
 #[no_mangle]
 #[link_section = ".stack_buffer"]
-pub static mut STACK_MEMORY: [u8; 0x1000] = [0; 0x1000];
+static mut STACK_MEMORY: [u8; 0x1000] = [0; 0x1000];
 
 type TemperatureDriver =
     components::temperature::TemperatureComponentType<nrf52840::temperature::Temp<'static>>;
@@ -397,8 +395,11 @@ pub unsafe fn start_particle_boron() -> (
     )
     .finalize(components::console_component_static!(132, 132));
     // Create the debugger object that handles calls to `debug!()`.
-    components::debug_writer::DebugWriterComponent::new(uart_mux)
-        .finalize(components::debug_writer_component_static!());
+    components::debug_writer::DebugWriterComponent::new(
+        uart_mux,
+        create_capability!(capabilities::SetDebugWriterCapability),
+    )
+    .finalize(components::debug_writer_component_static!());
 
     //--------------------------------------------------------------------------
     // WIRELESS

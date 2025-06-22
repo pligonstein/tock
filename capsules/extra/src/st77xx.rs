@@ -34,7 +34,7 @@
 //! );
 //! ```
 
-use crate::bus::{self, Bus, BusWidth};
+use crate::bus::{self, Bus, BusAddr8, DataWidth};
 use core::cell::Cell;
 use kernel::hil::gpio::Pin;
 use kernel::hil::screen::{
@@ -206,7 +206,7 @@ pub enum SendCommand {
     Slice(&'static Command, usize),
 }
 
-pub struct ST77XX<'a, A: Alarm<'a>, B: Bus<'a>, P: Pin> {
+pub struct ST77XX<'a, A: Alarm<'a>, B: Bus<'a, BusAddr8>, P: Pin> {
     bus: &'a B,
     alarm: &'a A,
     dc: Option<&'a P>,
@@ -234,7 +234,7 @@ pub struct ST77XX<'a, A: Alarm<'a>, B: Bus<'a>, P: Pin> {
     screen: &'static ST77XXScreen,
 }
 
-impl<'a, A: Alarm<'a>, B: Bus<'a>, P: Pin> ST77XX<'a, A, B, P> {
+impl<'a, A: Alarm<'a>, B: Bus<'a, BusAddr8>, P: Pin> ST77XX<'a, A, B, P> {
     pub fn new(
         bus: &'a B,
         alarm: &'a A,
@@ -336,14 +336,14 @@ impl<'a, A: Alarm<'a>, B: Bus<'a>, P: Pin> ST77XX<'a, A, B, P> {
         self.command.set(cmd);
         self.status.set(Status::SendCommand(position, len, repeat));
         self.dc.map(|dc| dc.clear());
-        let _ = self.bus.set_addr(BusWidth::Bits8, cmd.id as usize);
+        let _ = self.bus.set_addr(cmd.id.into());
     }
 
     fn send_command_slice(&self, cmd: &'static Command, len: usize) {
         self.command.set(cmd);
         self.dc.map(|dc| dc.clear());
         self.status.set(Status::SendCommandSlice(len));
-        let _ = self.bus.set_addr(BusWidth::Bits8, cmd.id as usize);
+        let _ = self.bus.set_addr(cmd.id.into());
     }
 
     fn send_parameters(&self, position: usize, len: usize, repeat: usize) {
@@ -359,7 +359,7 @@ impl<'a, A: Alarm<'a>, B: Bus<'a>, P: Pin> ST77XX<'a, A, B, P> {
                         }
                     }
                     self.dc.map(|dc| dc.set());
-                    let _ = self.bus.write(BusWidth::Bits8, buffer, len);
+                    let _ = self.bus.write(DataWidth::Bits8, buffer, len);
                 },
             );
         } else {
@@ -373,7 +373,7 @@ impl<'a, A: Alarm<'a>, B: Bus<'a>, P: Pin> ST77XX<'a, A, B, P> {
             |buffer| {
                 self.status.set(Status::SendParametersSlice);
                 self.dc.map(|dc| dc.set());
-                let _ = self.bus.write(BusWidth::Bits16BE, buffer, len / 2);
+                let _ = self.bus.write(DataWidth::Bits16BE, buffer, len / 2);
             },
         );
     }
@@ -395,7 +395,7 @@ impl<'a, A: Alarm<'a>, B: Bus<'a>, P: Pin> ST77XX<'a, A, B, P> {
                     self.width.set(self.screen.default_height);
                     self.height.set(self.screen.default_width);
                 }
-            };
+            }
             self.buffer.map_or_else(
                 || panic!("st77xx: set rotation has no buffer"),
                 |buffer| {
@@ -488,24 +488,18 @@ impl<'a, A: Alarm<'a>, B: Bus<'a>, P: Pin> ST77XX<'a, A, B, P> {
                 if position < self.sequence_len.get() {
                     self.sequence_buffer.map_or_else(
                         || panic!("st77xx: do next op has no sequence buffer"),
-                        |sequence| {
-                            match sequence[position] {
-                                SendCommand::Nop => {
-                                    self.do_next_op();
-                                }
-                                SendCommand::Default(cmd) => {
-                                    self.send_command_with_default_parameters(cmd);
-                                }
-                                SendCommand::Position(cmd, position, len) => {
-                                    self.send_command(cmd, position, len, 1);
-                                }
-                                SendCommand::Repeat(cmd, position, len, repeat) => {
-                                    self.send_command(cmd, position, len, repeat);
-                                }
-                                SendCommand::Slice(cmd, len) => {
-                                    self.send_command_slice(cmd, len);
-                                }
-                            };
+                        |sequence| match sequence[position] {
+                            SendCommand::Nop => self.do_next_op(),
+                            SendCommand::Default(cmd) => {
+                                self.send_command_with_default_parameters(cmd)
+                            }
+                            SendCommand::Position(cmd, position, len) => {
+                                self.send_command(cmd, position, len, 1)
+                            }
+                            SendCommand::Repeat(cmd, position, len, repeat) => {
+                                self.send_command(cmd, position, len, repeat)
+                            }
+                            SendCommand::Slice(cmd, len) => self.send_command_slice(cmd, len),
                         },
                     );
                 } else {
@@ -514,23 +508,22 @@ impl<'a, A: Alarm<'a>, B: Bus<'a>, P: Pin> ST77XX<'a, A, B, P> {
                         self.client.map(|client| {
                             self.power_on.set(true);
 
-                            client.screen_is_ready();
+                            client.screen_is_ready()
                         });
                     } else {
                         if self.setup_command.get() {
                             self.setup_command.set(false);
-                            self.setup_client.map(|setup_client| {
-                                setup_client.command_complete(Ok(()));
-                            });
+                            self.setup_client
+                                .map(|setup_client| setup_client.command_complete(Ok(())));
                         } else {
                             self.client.map(|client| {
                                 if self.write_buffer.is_some() {
                                     self.write_buffer.take().map(|buffer| {
                                         let data = SubSliceMut::new(buffer);
-                                        client.write_complete(data, Ok(()));
+                                        client.write_complete(data, Ok(()))
                                     });
                                 } else {
-                                    client.command_complete(Ok(()));
+                                    client.command_complete(Ok(()))
                                 }
                             });
                         }
@@ -614,7 +607,7 @@ impl<'a, A: Alarm<'a>, B: Bus<'a>, P: Pin> ST77XX<'a, A, B, P> {
             _ => {
                 panic!("ST77XX status Idle");
             }
-        };
+        }
     }
 
     fn set_memory_frame(
@@ -683,7 +676,9 @@ impl<'a, A: Alarm<'a>, B: Bus<'a>, P: Pin> ST77XX<'a, A, B, P> {
     }
 }
 
-impl<'a, A: Alarm<'a>, B: Bus<'a>, P: Pin> screen::ScreenSetup<'a> for ST77XX<'a, A, B, P> {
+impl<'a, A: Alarm<'a>, B: Bus<'a, BusAddr8>, P: Pin> screen::ScreenSetup<'a>
+    for ST77XX<'a, A, B, P>
+{
     fn set_client(&self, setup_client: &'a dyn ScreenSetupClient) {
         self.setup_client.set(setup_client);
     }
@@ -741,7 +736,7 @@ impl<'a, A: Alarm<'a>, B: Bus<'a>, P: Pin> screen::ScreenSetup<'a> for ST77XX<'a
     }
 }
 
-impl<'a, A: Alarm<'a>, B: Bus<'a>, P: Pin> screen::Screen<'a> for ST77XX<'a, A, B, P> {
+impl<'a, A: Alarm<'a>, B: Bus<'a, BusAddr8>, P: Pin> screen::Screen<'a> for ST77XX<'a, A, B, P> {
     fn get_resolution(&self) -> (usize, usize) {
         (self.width.get(), self.height.get())
     }
@@ -790,8 +785,18 @@ impl<'a, A: Alarm<'a>, B: Bus<'a>, P: Pin> screen::Screen<'a> for ST77XX<'a, A, 
         }
     }
 
-    fn write(&self, data: SubSliceMut<'static, u8>, continue_write: bool) -> Result<(), ErrorCode> {
+    fn write(
+        &self,
+        mut data: SubSliceMut<'static, u8>,
+        continue_write: bool,
+    ) -> Result<(), ErrorCode> {
         if self.status.get() == Status::Idle {
+            // Data is provided as RGB565 ( RRRRR GGG | GGG BBBBB ), but the device expects it to come over the bus in little endian, so ( GGG BBBBB | RRRRR GGG ).
+            // TODO(alevy): replace `chunks_mut` wit `array_chunks` when stable.
+            for pair in data.as_slice().chunks_mut(2) {
+                pair.swap(0, 1);
+            }
+
             self.setup_command.set(false);
             let len = data.len();
             self.write_buffer.replace(data.take());
@@ -853,13 +858,13 @@ impl<'a, A: Alarm<'a>, B: Bus<'a>, P: Pin> screen::Screen<'a> for ST77XX<'a, A, 
     }
 }
 
-impl<'a, A: Alarm<'a>, B: Bus<'a>, P: Pin> time::AlarmClient for ST77XX<'a, A, B, P> {
+impl<'a, A: Alarm<'a>, B: Bus<'a, BusAddr8>, P: Pin> time::AlarmClient for ST77XX<'a, A, B, P> {
     fn alarm(&self) {
         self.do_next_op();
     }
 }
 
-impl<'a, A: Alarm<'a>, B: Bus<'a>, P: Pin> bus::Client for ST77XX<'a, A, B, P> {
+impl<'a, A: Alarm<'a>, B: Bus<'a, BusAddr8>, P: Pin> bus::Client for ST77XX<'a, A, B, P> {
     fn command_complete(
         &self,
         buffer: Option<&'static mut [u8]>,

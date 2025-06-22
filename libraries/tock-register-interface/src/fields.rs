@@ -6,7 +6,7 @@
 //!
 //! To conveniently access and manipulate fields of a register, this
 //! library provides types and macros to describe and access bitfields
-//! of a register. This can be especially useful in conjuction with
+//! of a register. This can be especially useful in conjunction with
 //! the APIs defined in [`interfaces`](crate::interfaces), which make
 //! use of these types and hence allow to access and manipulate
 //! bitfields of proper registers directly.
@@ -375,7 +375,7 @@ macro_rules! register_bitmasks {
                     $offset:expr, $numbits:expr,
                     [$( $(#[$inner:meta])* $valname:ident = $value:expr ),+ $(,)?]
     } => { // this match arm is duplicated below with an allowance for 0 elements in the valname -> value array,
-        // to seperately support the case of zero-variant enums not supporting non-default
+        // to separately support the case of zero-variant enums not supporting non-default
         // representations.
         #[allow(non_upper_case_globals)]
         #[allow(unused)]
@@ -555,6 +555,35 @@ macro_rules! register_bitmasks {
 }
 
 /// Define register types and fields.
+///
+/// Implementations of memory-mapped registers can use this macro to define the
+/// structure and bitwise meaning of individual registers in the peripheral. An
+/// example use for a hypothetical UART driver might look like:
+///
+/// ```rust,ignore
+/// register_bitfields![u32,
+///     CONTROL [
+///         ENABLE OFFSET(0) NUMBITS(1),
+///         STOP_BITS OFFSET(1) NUMBITS(2) [
+///             StopBits1 = 0,
+///             StopBits2 = 1,
+///             StopBits0 = 2
+///         ]
+///     ],
+///     BYTE [
+///         CHARACTER OFFSET(0) NUMBITS(8)
+///     ],
+///     INTERRUPT [
+///         TRANSMITTED OFFSET(0) NUMBITS(1),
+///         RECEIVED OFFSET(1) NUMBITS(1),
+///         FIFO_FULL OFFSET(2) NUMBITS(1)
+///     ]
+/// ];
+/// ```
+///
+/// Each field in the register can be identified by its offset within the
+/// register and its bitwidth. Fields that have discrete options with semantic
+/// meaning can be enumerated.
 #[macro_export]
 macro_rules! register_bitfields {
     {
